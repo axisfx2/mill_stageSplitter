@@ -14,12 +14,13 @@
 
 ## Useage
 
-1. Disable all shot specific lights and objects
-2. Nest your shot specific light/objects inside separate nulls
-3. Prefix the camera's name to the name of your null IE 'camera_name_LIGHTS', 'camera_name_BG'. Make sure you include the underscore after the cameras name. The cameras name is case sensitive.
-4. Select a Stage object at least 1 keyframe
-5. Extensions > User Scripts > Run Script...
-6. Run the stageSplitter.py script
+1. Make your source render setting and make sure its first in the list
+2. Disable all shot specific lights and objects
+3. Nest your shot specific light/objects inside separate nulls
+4. Prefix the camera's name to the name of your null IE 'camera_name_LIGHTS', 'camera_name_BG'. Make sure you include the underscore after the cameras name. The cameras name is case sensitive.
+5. Select a Stage object at least 1 keyframe
+6. Extensions > User Scripts > Run Script...
+7. Run the stageSplitter.py script
 
 ## Changelog
 
