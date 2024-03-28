@@ -10,7 +10,7 @@
 
 * Click the green 'Code' button
 * Click 'Download ZIP'
-* Extract to the 'Cinema 4D/Plugins folder'
+* Extract the 'mill_stageSplitter-main' folder to your 'programfiles/Cinema 4D/Plugins' directory
 * Restart Cinema 4D
 
 ## Useage
