@@ -4,7 +4,7 @@
 * Author: Ewan Davidson
 * Email: ewan@axisfx.design
 * Release Date: 28.03.2024
-* Current Version: 1.2
+* Current Version: 1.3
 
 ## Installation
 
@@ -23,6 +23,13 @@
 7. Run the stageSplitter.py script
 
 ## Changelog
+
+### 1.3  |  28.03.2024
+
+* Log created when script is ran - saved in Documents\Stage Splitter\Logs
+* Takes are sorted alphabetically
+* Limitting accepted shot specific nulls to certain keywords
+* Prompting user if they want to look for shot specific nulls
 
 ### 1.2  |  28.03.2024
 

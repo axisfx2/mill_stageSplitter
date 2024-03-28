@@ -1,4 +1,14 @@
 import c4d
+import re
+import os
+from datetime import datetime
+
+# sorting
+def atoi(text):
+    return int(text) if text.isdigit() else text
+
+def natural_keys(text):
+    return [atoi(c) for c in re.split(r'(\d+)', text)]
 
 class stageSplitter():
     def __init__(self, doc):
@@ -26,11 +36,16 @@ class stageSplitter():
                 self.deleteAllRenderData()
                 self.deleteAllTakes()
 
+        self.shot_specific_objs = c4d.gui.QuestionDialog(
+            'Enable shot specific lights/objects?\nSupport for nulls formatted:\ncamera_name_LIGHTS\ncamera_name_BG\ncamera_name_SCENE')
+
         self.dataListFromKeyframes(camera_track)
         self.createRenderData()
         self.createTakeData()
         
         self.doc.EndUndo()
+
+        self.writeLogInformation()
 
         c4d.gui.MessageDialog(self.prettyStats())
 
@@ -146,9 +161,9 @@ class stageSplitter():
             
             self.data_list.append(data)
             
-        #[print(d) for d in self.data_list]
-        #return
-        #self.data_list.reverse()
+        # sort alphabetically by take name
+        self.data_list = sorted(
+            self.data_list,key=lambda n: natural_keys(n['Take Name']))
         
     def createRenderData(self):
         src_render_data = self.doc.GetFirstRenderData()
@@ -182,6 +197,12 @@ class stageSplitter():
         cameras = list(self.camera_dict.keys())
         cameras = sorted(cameras, key=lambda n: len(n), reverse=True)
 
+        accepted_suffix = [
+            'LIGHTS',
+            'SCENE',
+            'BG'
+        ]
+
         nulls = []
         for object in all_scene_objects:
             if object.GetType() not in null_ids:
@@ -192,7 +213,12 @@ class stageSplitter():
             for camera in cameras:
                 splitter = camera + '_'
 
-                if not object_name.startswith(splitter):
+                accepted_null_names = []
+
+                for suffix in accepted_suffix:
+                    accepted_null_names.append(splitter+suffix)
+                
+                if object_name not in accepted_null_names:
                     continue
 
                 for data in self.getDataEquallingCamera(camera):
@@ -219,6 +245,43 @@ class stageSplitter():
 
         return items
     
+    def writeLogInformation(self):
+        doc_simple = os.path.splitext(self.doc.GetDocumentName())[0]
+        log_folder = os.path.expanduser('~/Documents/Stage Splitter/Logs/'+doc_simple)
+        current_datetime = datetime.now()
+        
+        log_filename = current_datetime.strftime("%m-%d-%Y_%H-%M-%S")
+        log_filename = 'split-log_{}.txt'.format(log_filename)
+        # log_filename = 'qwer.txt'
+        log_file = os.path.join(log_folder, log_filename).replace('/', '\\')
+
+        if not os.path.isdir(log_folder):
+            os.makedirs(log_folder)
+
+        log_info = []
+        doc_path = os.path.join(
+            self.doc.GetDocumentPath(), 
+            self.doc.GetDocumentName()
+        )
+
+        doc_path = doc_path.replace('/', '\\')
+
+        log_info.append('Scene File: '+doc_path)
+        
+        tab = '    '
+
+        for data in self.data_list:
+            tstart, tend = data['Frame Range']
+            fstart = tstart.GetFrame(self.fps)
+            fend = tend.GetFrame(self.fps)
+
+            log_info.append('')
+            log_info.append('{}: {} - {}'.format(
+                data['Take Name'], fstart, fend))
+            
+        with open(log_file, 'w') as f:
+            f.write('\n'.join(log_info))
+
     def createTakeData(self):
         # create takes
         src_take_data = self.doc.GetTakeData()
@@ -237,7 +300,7 @@ class stageSplitter():
         ]
         
         self.getNullObjects()
-
+        
         for data_dict in reversed(self.data_list):
             take_data = src_take_data.AddTake(
                 '', main_take, child_take)
@@ -245,44 +308,45 @@ class stageSplitter():
             take_data.SetName(data_dict['Take Name'])
 
             # object & light visibility
-            for null in data_dict['Enable Nulls']:
+            if self.shot_specific_objs:
+                for null in data_dict['Enable Nulls']:
 
-                # enable editor visibility
-                take_data.FindOrAddOverrideParam(
-                    src_take_data,
-                    null,
-                    c4d.DescID(c4d.ID_BASEOBJECT_VISIBILITY_EDITOR),
-                    False
-                )
-
-                # enable render visibility
-                take_data.FindOrAddOverrideParam(
-                    src_take_data,
-                    null,
-                    c4d.DescID(c4d.ID_BASEOBJECT_VISIBILITY_RENDER),
-                    False
-                )
-
-                for object in IterateHierarchy(null, True):
-                    null_name = null.GetName()
-                    
-                    # ignore anything that isnt rs light
-                    if object.GetType() not in rs_light_types:
-                        continue
-                    # # ignore cameras
-                    # if object.GetType == 1057516:
-                    #     continue
-                    
-                    # if null_name.lower().find('lights') >= 0:
-
-
-                    # enable.. enable?
+                    # enable editor visibility
                     take_data.FindOrAddOverrideParam(
                         src_take_data,
-                        object,
-                        c4d.DescID(c4d.ID_BASEOBJECT_GENERATOR_FLAG),
-                        True
+                        null,
+                        c4d.DescID(c4d.ID_BASEOBJECT_VISIBILITY_EDITOR),
+                        False
                     )
+
+                    # enable render visibility
+                    take_data.FindOrAddOverrideParam(
+                        src_take_data,
+                        null,
+                        c4d.DescID(c4d.ID_BASEOBJECT_VISIBILITY_RENDER),
+                        False
+                    )
+
+                    for object in IterateHierarchy(null, True):
+                        null_name = null.GetName()
+                        
+                        # ignore anything that isnt rs light
+                        if object.GetType() not in rs_light_types:
+                            continue
+                        # # ignore cameras
+                        # if object.GetType == 1057516:
+                        #     continue
+                        
+                        # if null_name.lower().find('lights') >= 0:
+
+
+                        # enable.. enable?
+                        take_data.FindOrAddOverrideParam(
+                            src_take_data,
+                            object,
+                            c4d.DescID(c4d.ID_BASEOBJECT_GENERATOR_FLAG),
+                            True
+                        )
                 
             take_data.SetCamera(src_take_data, data_dict['Camera'])
             take_data.SetRenderData(src_take_data, data_dict['Render Data'])
@@ -345,7 +409,8 @@ def main():
             CommandData()
         )
     except:
-        stageSplitter(c4d.documents.GetActiveDocument())
+        stageSplitter(
+            c4d.documents.GetActiveDocument())
 
 if __name__ == '__main__':
     main()
