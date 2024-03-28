@@ -59,6 +59,7 @@ class stageSplitter():
 
     def getAllRenderData(self):
         rd = self.doc.GetFirstRenderData()
+        rd = rd.GetNext()
         rds = []
         
         while rd:
@@ -70,7 +71,7 @@ class stageSplitter():
     def deleteAllRenderData(self):
         rds = self.getAllRenderData()
             
-        for rd in rds[1:]:
+        for rd in rds:
             rd.Remove()
 
         c4d.EventAdd()

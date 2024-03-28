@@ -16,9 +16,13 @@
 ## Useage
 
 1. Select a stage object with 1 or more keyframes
-2. Click 'Stage Splitter' under the 'Google' menu
+2. Click 'Stage Splitter' under the 'Extensions' menu
 
 ## Changelog
+
+### 1.1  |  28.03.2024
+
+* Deleted standalone menu - scripts are now found in the 'Extensions' menu
 
 ### 1.0  |  28.03.2024
 
