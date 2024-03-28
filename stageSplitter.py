@@ -115,7 +115,9 @@ class stageSplitter():
             time = key.GetTime()
             start_time = time#.GetFrame(fps)
             
-            data = {}
+            data = {
+                'Enable Nulls': []
+            }
             
             data['Frame Range'] = [start_time]
             
@@ -166,18 +168,121 @@ class stageSplitter():
             data_dict['Render Data'] = render_data
 
         c4d.EventAdd()
+
+    def getNullObjects(self):
+        first_scene_object = self.doc.GetFirstObject()
+        all_scene_objects = IterateHierarchy(
+            first_scene_object)
+        all_scene_objects += [first_scene_object]
+
+        alembic_null_id = 1028083
+        null_id = 5140
+        null_ids = [null_id, alembic_null_id]
+
+        cameras = list(self.camera_dict.keys())
+        cameras = sorted(cameras, key=lambda n: len(n), reverse=True)
+
+        nulls = []
+        for object in all_scene_objects:
+            if object.GetType() not in null_ids:
+                continue
             
+            object_name = object.GetName()
+            # print('null', object_name)
+            for camera in cameras:
+                splitter = camera + '_'
+
+                if not object_name.startswith(splitter):
+                    continue
+
+                for data in self.getDataEquallingCamera(camera):
+                    data['Enable Nulls'].append(object)
+
+                # for data in self.getDataNotEquallingCamera(camera):
+                #     data['Disable Nulls'].append(object)
+
+                break
+            
+    def getDataEquallingCamera(self, camera):
+        items = []
+        for data in self.data_list:
+            if data['Camera'].GetName() == camera:
+                items.append(data)
+
+        return items
+            
+    def getDataNotEquallingCamera(self, camera):
+        items = []
+        for data in self.data_list:
+            if data['Camera'].GetName() != camera:
+                items.append(data)
+
+        return items
+    
     def createTakeData(self):
         # create takes
         src_take_data = self.doc.GetTakeData()
         main_take = src_take_data.GetMainTake()
         child_take = main_take.GetDown()
+
+        rs_light_types = [
+            1036751,
+            1036751,
+            1036751,
+            1036751,
+            1036751,
+            1036751,
+            1036751,
+            1036751
+        ]
         
+        self.getNullObjects()
+
         for data_dict in reversed(self.data_list):
             take_data = src_take_data.AddTake(
                 '', main_take, child_take)
             
             take_data.SetName(data_dict['Take Name'])
+
+            # object & light visibility
+            for null in data_dict['Enable Nulls']:
+
+                # enable editor visibility
+                take_data.FindOrAddOverrideParam(
+                    src_take_data,
+                    null,
+                    c4d.DescID(c4d.ID_BASEOBJECT_VISIBILITY_EDITOR),
+                    False
+                )
+
+                # enable render visibility
+                take_data.FindOrAddOverrideParam(
+                    src_take_data,
+                    null,
+                    c4d.DescID(c4d.ID_BASEOBJECT_VISIBILITY_RENDER),
+                    False
+                )
+
+                for object in IterateHierarchy(null, True):
+                    null_name = null.GetName()
+                    
+                    # ignore anything that isnt rs light
+                    if object.GetType() not in rs_light_types:
+                        continue
+                    # # ignore cameras
+                    # if object.GetType == 1057516:
+                    #     continue
+                    
+                    # if null_name.lower().find('lights') >= 0:
+
+
+                    # enable.. enable?
+                    take_data.FindOrAddOverrideParam(
+                        src_take_data,
+                        object,
+                        c4d.DescID(c4d.ID_BASEOBJECT_GENERATOR_FLAG),
+                        True
+                    )
                 
             take_data.SetCamera(src_take_data, data_dict['Camera'])
             take_data.SetRenderData(src_take_data, data_dict['Render Data'])
@@ -186,6 +291,39 @@ class stageSplitter():
             #take_data.SetName(data_dict['Take Name'])
 
         c4d.EventAdd()
+
+def IterateHierarchy(op, children_only=False):
+    '''
+    hierarchy iteration
+    https://developers.maxon.net/?p=596
+    '''
+    def GetNextObject(op):
+        if op==None:
+            return None
+    
+        if op.GetDown():
+            return op.GetDown()
+    
+        while not op.GetNext() and op.GetUp():
+            op = op.GetUp()
+
+        if children_only and op == src:
+            return None
+        
+        return op.GetNext()
+    
+    if op is None:
+        return
+ 
+    children = []
+
+    src = op
+
+    while op:
+        children.append(op)
+        op = GetNextObject(op)
+ 
+    return children
 
 class CommandData(c4d.plugins.CommandData):
     def Execute(self, doc):
@@ -197,14 +335,17 @@ def main():
     # iconMTX.InitWith(os.path.join(os.path.dirname(__file__), "res", "stageSplitter.png"))
     iconMTX = None
     # Register Plugin
-    c4d.plugins.RegisterCommandPlugin(
-        1062995, 
-        'Stage Splitter', 
-        0, 
-        iconMTX,
-        'Split stage object into takes and render settings per each keyframe', 
-        CommandData()
-    )
+    try:
+        c4d.plugins.RegisterCommandPlugin(
+            1062995, 
+            'Stage Splitter', 
+            0, 
+            iconMTX,
+            'Split stage object into takes and render settings per each keyframe', 
+            CommandData()
+        )
+    except:
+        stageSplitter(c4d.documents.GetActiveDocument())
 
 if __name__ == '__main__':
     main()
